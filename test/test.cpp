@@ -14,6 +14,7 @@
 
 #include "k2p.h"
 #include "dc.h"
+#include "lowPassFilter.h"
 
 #pragma comment(lib,"Winmm.lib")
 using namespace std;
@@ -48,44 +49,53 @@ struct calibPoint
 	bool calibrationPoint[4] = { false, false, false, false };
 	int pointNumber = 0;
 	int handTrackerChecker = 0;
-	double handTrackerPointsX[11];
-	double handTrackerPointsY[11];
-	double handTrackerPointsZ[11];
+	double handTrackerPointsX[4][11];
+	double handTrackerPointsY[4][11];
+	double handTrackerPointsZ[4][11];
+	
 };
 
 
 
-void point_calibration(double correctedDistance, double distanceToScreen, ColorSpacePoint colorpoint, CameraSpacePoint point, calibPoint& calibPoint, ofstream fout)
+void point_calibration(double correctedDistance, double distanceToScreen, int numberOfCalibrationPoints, ColorSpacePoint colorpoint, CameraSpacePoint point, calibPoint& calibPoint)
 {
 	
 	if (correctedDistance < distanceToScreen && calibPoint.ClickTriger == false && (calibPoint.pointNumber == 0 || (colorpoint.X - calibPoint.current_x > 500 && (calibPoint.pointNumber == 1 || calibPoint.pointNumber == 3)) || (colorpoint.Y - calibPoint.current_y > 300 && calibPoint.pointNumber == 2)))
 	{
-		if (calibPoint.handTrackerChecker < 11)
+		if (calibPoint.handTrackerChecker < numberOfCalibrationPoints)
 		{
-			calibPoint.handTrackerPointsX[calibPoint.handTrackerChecker] = point.X;
-			calibPoint.handTrackerPointsY[calibPoint.handTrackerChecker] = point.Y;;
-			calibPoint.handTrackerPointsZ[calibPoint.handTrackerChecker] = distanceToScreen + double(rand() % 1000) / 1000000;
+			calibPoint.handTrackerPointsX[calibPoint.pointNumber][calibPoint.handTrackerChecker] = point.X;
+			calibPoint.handTrackerPointsY[calibPoint.pointNumber][calibPoint.handTrackerChecker] = point.Y;;
+			calibPoint.handTrackerPointsZ[calibPoint.pointNumber][calibPoint.handTrackerChecker] = distanceToScreen + double(rand() % 1000) / 1000000;
 			calibPoint.handTrackerChecker++;
 			return;
 			
 		}
 		else
 		{
-			sort(calibPoint.handTrackerPointsX, calibPoint.handTrackerPointsX + 11);
-			sort(calibPoint.handTrackerPointsY, calibPoint.handTrackerPointsY + 11);
-			sort(calibPoint.handTrackerPointsZ, calibPoint.handTrackerPointsZ + 11);
-
-			for (int i = 0; i < 11; i++)
+			double masX[11];
+			double masY[11];
+			double masZ[11];
+			for (int i = 0; i < numberOfCalibrationPoints; i++)
 			{
-				printf("Point! %f %f %f\n", calibPoint.handTrackerPointsX[i], calibPoint.handTrackerPointsY[i], calibPoint.handTrackerPointsZ[i]);
-				fout << "Point " << calibPoint.pointNumber << endl; 
-				fout << "X " << calibPoint.handTrackerPointsX[i] << "Y " << calibPoint.handTrackerPointsY[i] << "Z " << calibPoint.handTrackerPointsZ[i] << endl;
+				masX[i] = calibPoint.handTrackerPointsX[calibPoint.pointNumber][i];
+				masY[i] = calibPoint.handTrackerPointsY[calibPoint.pointNumber][i];
+				masZ[i] = calibPoint.handTrackerPointsZ[calibPoint.pointNumber][i];
+			}
+			sort(masX, masX + numberOfCalibrationPoints);
+			sort(masY, masY + numberOfCalibrationPoints);
+			sort(masZ, masZ + numberOfCalibrationPoints);
+
+			for (int i = 0; i < numberOfCalibrationPoints; i++)
+			{
+				printf("Point! %f %f %f\n", masX[i], masY[i], masZ[i]);
+				
 			}
 
 			calibPoint.ClickTriger = true;
-			calibPoint.A[calibPoint.pointNumber][0] = calibPoint.handTrackerPointsX[5];
-			calibPoint.A[calibPoint.pointNumber][1] = calibPoint.handTrackerPointsY[5];
-			calibPoint.A[calibPoint.pointNumber][2] = calibPoint.handTrackerPointsZ[5];
+			calibPoint.A[calibPoint.pointNumber][0] = masX[5];
+			calibPoint.A[calibPoint.pointNumber][1] = masY[5];
+			calibPoint.A[calibPoint.pointNumber][2] = masZ[5];
 			printf("Point! %d \n", calibPoint.pointNumber);
 			PlaySoundA("sound.wav", NULL, SND_ASYNC);
 			calibPoint.handTrackerChecker = 0;
@@ -114,9 +124,9 @@ int main()
 	int x_size = GetSystemMetrics(SM_CXSCREEN);
 	int y_size = GetSystemMetrics(SM_CYSCREEN);
 	
-	double distanceToScreen = 1.80;
+	double distanceToScreen = 1.97;
 	double avgDist = 0;
-
+	int numberOfCalibrationPoints = 11;
 
 	ofstream fout;
 	fout.open("log.txt");
@@ -133,7 +143,9 @@ int main()
 	);
 	calibPoint cp;
 	HRESULT hr = S_OK;
-	fout << "    X     " << "   Y    " << "   Z0    " << " Color X "<< " Color Y " << "  Zcor  " << endl;
+
+	LowPassFilter lpf(300, 33);
+
 	if (FAILED(GetDefaultKinectSensor(&sensor))) return 0;
 	if (sensor) {
 		sensor->Open();
@@ -172,37 +184,47 @@ int main()
 									coordinateMapper->MapCameraPointToColorSpace(point, &colorpoint);
 									//printf("Point x: %f y: %f z: %f\n", colorpoint.X, colorpoint.Y, point.Z);
 									//printf("Corrected Distance %f \n", point.Z);
-									double correctedDistance;
-									correctedDistance = dc.from(colorpoint.X, colorpoint.Y, point.Z);
-									printf("Corrected Distance %4.3f %4.3f %4.2f \n", point.X, point.Y, correctedDistance);
+									double correctedDistance = point.Z;
+									//correctedDistance = dc.from(colorpoint.X, colorpoint.Y, point.Z);
+									//printf("Corrected Distance %4.3f %4.3f %4.2f \n", point.X, point.Y, correctedDistance);
 
-									fout << point.X << " " << point.Y << " " << point.Z << " " << colorpoint.X << " " << colorpoint.Y << " " << correctedDistance << endl;
-									/*if (calibration == false)
+									
+									if (calibration == false)
 									{
 										if (cp.calibrationPoint[0] == false && cp.calibrationPoint[1] == false && cp.calibrationPoint[2] == false && cp.calibrationPoint[3] == false) {
 
 
-											point_calibration(correctedDistance, distanceToScreen, colorpoint, point, cp);
+											point_calibration(correctedDistance, distanceToScreen, numberOfCalibrationPoints, colorpoint, point, cp);
+										
 											 
 										}
 										if (cp.calibrationPoint[0] == true && cp.calibrationPoint[1] == false && cp.calibrationPoint[2] == false && cp.calibrationPoint[3] == false) {
 											
-											point_calibration(correctedDistance, distanceToScreen, colorpoint, point, cp);
+											point_calibration(correctedDistance, distanceToScreen, numberOfCalibrationPoints, colorpoint, point, cp);
 
 										}
 										if (cp.calibrationPoint[0] == true && cp.calibrationPoint[1] == true && cp.calibrationPoint[2] == false && cp.calibrationPoint[3] == false) {
 											
-											point_calibration(correctedDistance, distanceToScreen, colorpoint, point, cp);
+											point_calibration(correctedDistance, distanceToScreen, numberOfCalibrationPoints, colorpoint, point, cp);
 
 										}
 										if (cp.calibrationPoint[0] == true && cp.calibrationPoint[1] == true && cp.calibrationPoint[2] == true && cp.calibrationPoint[3] == false) {
 
 											
-											point_calibration(correctedDistance, distanceToScreen, colorpoint, point, cp);
+											point_calibration(correctedDistance, distanceToScreen, numberOfCalibrationPoints, colorpoint, point, cp);
 
 										}
 										if (cp.calibrationPoint[0] == true && cp.calibrationPoint[1] == true && cp.calibrationPoint[2] == true && cp.calibrationPoint[3] == true) {
 											//compute the calibration 
+
+											for (int j = 0; j < 4; j++)
+											{
+												fout << "Point " << j << endl;
+												for (size_t i = 0; i < numberOfCalibrationPoints; i++)
+												{
+													fout << "X " << cp.handTrackerPointsX[j][i] << "Y " << cp.handTrackerPointsY[j][i] << "Z " << cp.handTrackerPointsZ[j][i] << endl;
+												}
+											}
 											double B[4][2] = {
 											{ 0, 0},
 											{ x_size, 0},
@@ -230,21 +252,24 @@ int main()
 
 											calibration = true;
 											printf("Calibration done! \n");
-											fout << "X " << "Y " << "Z0 " << "Zcor" << endl;
+											fout << "    X     " << "   Y   " << "   Z0   " << "   Zcor   " << endl;
 										}
-									}*/
-									/*if (calibration == true)
+									}
+									if (calibration == true)
 									{
 										if (correctedDistance < distanceToScreen)
 										{
+
 											k2p.map(point.X, point.Y, avgDist, screen_x, screen_y);
 											//printf("X:%4.2f Y:%4.2f Z:%4.2f --- X:%4.0f Y:%4.0f\n", point.X, point.Y, correctedDistance, screen_x, screen_y);
 											//Point_trigger = true;
+
+											lpf.filter(screen_x, screen_y);
 											SetCursorPos(screen_x, screen_y);
-											fout << point.X << " " << point.Y << " " << point.Z << " " << avgDist << endl;
+											fout << screen_x << " " << screen_y << " " << point.Z << " " << avgDist << endl;
 										}
 
-									}*/
+									}
 								}
 							}
 						}
