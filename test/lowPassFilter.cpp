@@ -1,5 +1,5 @@
-#include "lowPassFilter.h"
 #include "stdafx.h"
+#include "lowPassFilter.h"
 
 LowPassFilter::LowPassFilter(double aT, double aInterval) :
 	t(aT),

@@ -65,8 +65,8 @@ void point_calibration(double correctedDistance, double distanceToScreen, int nu
 		if (calibPoint.handTrackerChecker < numberOfCalibrationPoints)
 		{
 			calibPoint.handTrackerPointsX[calibPoint.pointNumber][calibPoint.handTrackerChecker] = point.X;
-			calibPoint.handTrackerPointsY[calibPoint.pointNumber][calibPoint.handTrackerChecker] = point.Y;;
-			calibPoint.handTrackerPointsZ[calibPoint.pointNumber][calibPoint.handTrackerChecker] = distanceToScreen + double(rand() % 1000) / 1000000;
+			calibPoint.handTrackerPointsY[calibPoint.pointNumber][calibPoint.handTrackerChecker] = point.Y;
+			calibPoint.handTrackerPointsZ[calibPoint.pointNumber][calibPoint.handTrackerChecker] = point.Z;
 			calibPoint.handTrackerChecker++;
 			return;
 			
@@ -124,7 +124,7 @@ int main()
 	int x_size = GetSystemMetrics(SM_CXSCREEN);
 	int y_size = GetSystemMetrics(SM_CYSCREEN);
 	
-	double distanceToScreen = 1.97;
+	double distanceToScreen = 1.50;
 	double avgDist = 0;
 	int numberOfCalibrationPoints = 11;
 
@@ -252,7 +252,7 @@ int main()
 
 											calibration = true;
 											printf("Calibration done! \n");
-											fout << "    X     " << "   Y   " << "   Z0   " << "   Zcor   " << endl;
+											fout << "    X     " << "   Y   " << "   Z0   " << endl;
 										}
 									}
 									if (calibration == true)
@@ -260,13 +260,13 @@ int main()
 										if (correctedDistance < distanceToScreen)
 										{
 
-											k2p.map(point.X, point.Y, avgDist, screen_x, screen_y);
+											k2p.map(point.X, point.Y, point.Z, screen_x, screen_y);
 											//printf("X:%4.2f Y:%4.2f Z:%4.2f --- X:%4.0f Y:%4.0f\n", point.X, point.Y, correctedDistance, screen_x, screen_y);
 											//Point_trigger = true;
 
 											lpf.filter(screen_x, screen_y);
 											SetCursorPos(screen_x, screen_y);
-											fout << screen_x << " " << screen_y << " " << point.Z << " " << avgDist << endl;
+											fout << screen_x << " " << screen_y << " " << point.Z << endl;
 										}
 
 									}
