@@ -24,7 +24,7 @@
     <ClInclude Include="targetver.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="lowPassFilter.h">
+    <ClInclude Include="Kinect.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -35,7 +35,7 @@
     <ClCompile Include="test.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="lowPassFilter.cpp">
+    <ClCompile Include="..\src\calibrator.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

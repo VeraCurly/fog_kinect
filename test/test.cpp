@@ -1,287 +1,168 @@
-// test.cpp : Defines the entry point for the console application.
-//
-
 #include "stdafx.h"
-#include <Kinect.h>
+
 #include <cmath>
-#include <cstdio>
-#include <cstdlib>
-#include <Windows.h>
 #include <iostream>
-#include <time.h> 
-#include <algorithm>
-#include <fstream>
 
-#include "k2p.h"
-#include "dc.h"
-#include "lowPassFilter.h"
+#include <windows.h>
 
-#pragma comment(lib,"Winmm.lib")
-using namespace std;
+#include "..\src\calibrator.h"
 
-
-//safe way of deleting a COM object
-template<typename T>
-void SafeRelease(T& ptr) { if (ptr) { ptr->Release(); ptr = nullptr; } }
-   // Kinect depth data source
-IKinectSensor* sensor = nullptr;
-IBodyFrameReader* bodyReader;
-BOOL Point_trigger = false;
-//BOOL Click_trigger = false;
-BOOL calibration = false;
-BOOL calibrationPoint[4] = { false, false, false, false };
-//BOOL calibrationPoint2 = false;
-//BOOL calibrationPoint3 = false;
-//BOOL calibrationPoint4 = false;
-//double current_x, current_y;
-time_t t0;
-double A[4][3];
-Kinect2Projector k2p;
-double screen_x, screen_y;
-//int pointNumber = 0;
-
-struct calibPoint
+double random(double aSize)
 {
-	BOOL ClickTriger = false;
-	double A[4][3];
-	double current_x;
-	double current_y;
-	bool calibrationPoint[4] = { false, false, false, false };
-	int pointNumber = 0;
-	int handTrackerChecker = 0;
-	double handTrackerPointsX[4][11];
-	double handTrackerPointsY[4][11];
-	double handTrackerPointsZ[4][11];
-	
-};
+	return aSize * (double(rand() % 10001) / 5000.0 - 1.0);
+}
 
-
-
-void point_calibration(double correctedDistance, double distanceToScreen, int numberOfCalibrationPoints, ColorSpacePoint colorpoint, CameraSpacePoint point, calibPoint& calibPoint)
+void WaitKeyPress(char* aMessage)
 {
-	
-	if (correctedDistance < distanceToScreen && calibPoint.ClickTriger == false && (calibPoint.pointNumber == 0 || (colorpoint.X - calibPoint.current_x > 500 && (calibPoint.pointNumber == 1 || calibPoint.pointNumber == 3)) || (colorpoint.Y - calibPoint.current_y > 300 && calibPoint.pointNumber == 2)))
+	std::cout << "\n... Press spacebar to " << aMessage << " ...\n";
+	while (!::GetKeyState(VK_SPACE))
 	{
-		if (calibPoint.handTrackerChecker < numberOfCalibrationPoints)
-		{
-			calibPoint.handTrackerPointsX[calibPoint.pointNumber][calibPoint.handTrackerChecker] = point.X;
-			calibPoint.handTrackerPointsY[calibPoint.pointNumber][calibPoint.handTrackerChecker] = point.Y;;
-			calibPoint.handTrackerPointsZ[calibPoint.pointNumber][calibPoint.handTrackerChecker] = distanceToScreen + double(rand() % 1000) / 1000000;
-			calibPoint.handTrackerChecker++;
-			return;
-			
-		}
+		Sleep(16);
+	}
+}
+
+void TestCalibrator()
+{
+	std::cout << "\n -- TEST CALIBRATOR --\n";
+
+	double distanceToScreen = 1.8;
+	int gestureSampleCount = 30;
+	int gestureCount = 12;
+
+	Calibrator calibrator(distanceToScreen);
+
+	int samplesCount = gestureSampleCount * gestureCount;
+	CameraSpacePoint* samples = new CameraSpacePoint[samplesCount];
+
+	int i = 0;
+	int gestureIndex = 0;
+	double noiseLevel = 0.0;
+
+	Calibrator::Point finger[4] = {
+		Calibrator::Point(-0.4, -0.6),
+		Calibrator::Point(0.4, -0.6),
+		Calibrator::Point(-0.4, 0.6),
+		Calibrator::Point(0.4, 0.6)
+	};
+
+	// first point in 
+	for (++gestureIndex; i < gestureSampleCount; i++) {
+		samples[i] = { finger[0].X + random(noiseLevel), finger[0].Y + random(noiseLevel), distanceToScreen + 0.2 - 0.3 * i / gestureSampleCount };
+	}
+	// first point out
+	for (++gestureIndex; i < gestureSampleCount * gestureIndex; i++) {
+		samples[i] = { finger[0].X + random(noiseLevel), finger[0].Y + random(noiseLevel), distanceToScreen + 0.2 - 0.3 * (gestureSampleCount * gestureIndex - i) / gestureSampleCount };
+	}
+	// second point in 
+	for (++gestureIndex; i < gestureSampleCount * gestureIndex; i++) {
+		samples[i] = { finger[1].X + random(noiseLevel), finger[1].Y + random(noiseLevel), distanceToScreen + 0.2 - 0.35 * (i - gestureSampleCount * (gestureIndex - 1)) / gestureSampleCount };
+	}
+	// second point out
+	for (++gestureIndex; i < gestureSampleCount * gestureIndex; i++) {
+		samples[i] = { finger[1].X + random(noiseLevel), finger[1].Y + random(noiseLevel), distanceToScreen + 0.2 - 0.35 * (gestureSampleCount * gestureIndex - i) / gestureSampleCount };
+	}
+	// second point in again!
+	for (++gestureIndex; i < gestureSampleCount * gestureIndex; i++) {
+		samples[i] = { finger[1].X + random(noiseLevel), finger[1].Y + random(noiseLevel), distanceToScreen + 0.2 - 0.35 * (i - gestureSampleCount * (gestureIndex - 1)) / gestureSampleCount };
+	}
+	// second point out again!
+	for (++gestureIndex; i < gestureSampleCount * gestureIndex; i++) {
+		samples[i] = { finger[1].X + random(noiseLevel), finger[1].Y + random(noiseLevel), distanceToScreen + 0.2 - 0.35 * (gestureSampleCount * gestureIndex - i) / gestureSampleCount };
+	}
+	// third point in partially
+	for (++gestureIndex; i < gestureSampleCount * gestureIndex; i++) {
+		samples[i] = { finger[2].X + random(noiseLevel), finger[2].Y + random(noiseLevel), distanceToScreen + 0.27 - 0.3 * (i - gestureSampleCount * (gestureIndex - 1)) / gestureSampleCount };
+	}
+	// third point out, collecting only 6 samples
+	for (++gestureIndex; i < gestureSampleCount * gestureIndex; i++) {
+		samples[i] = { finger[2].X + random(noiseLevel), finger[2].Y + random(noiseLevel), distanceToScreen + 0.27 - 0.3 * (gestureSampleCount * gestureIndex - i) / gestureSampleCount };
+	}
+	// third point in again
+	for (++gestureIndex; i < gestureSampleCount * gestureIndex; i++) {
+		samples[i] = { finger[2].X + random(noiseLevel), finger[2].Y + random(noiseLevel), distanceToScreen + 0.27 - 0.4 * (i - gestureSampleCount * (gestureIndex - 1)) / gestureSampleCount };
+	}
+	// third point out again
+	for (++gestureIndex; i < gestureSampleCount * gestureIndex; i++) {
+		samples[i] = { finger[2].X + random(noiseLevel), finger[2].Y + random(noiseLevel), distanceToScreen + 0.27 - 0.4 * (gestureSampleCount * gestureIndex - i) / gestureSampleCount };
+	}
+	// forth point in
+	for (++gestureIndex; i < gestureSampleCount * gestureIndex; i++) {
+		samples[i] = { finger[3].X + random(noiseLevel), finger[3].Y + random(noiseLevel), distanceToScreen + 0.2 - 0.3 * (i - gestureSampleCount * (gestureIndex - 1)) / gestureSampleCount };
+	}
+	// forth point out
+	for (++gestureIndex; i < gestureSampleCount * gestureIndex; i++) {
+		samples[i] = { finger[3].X + random(noiseLevel), finger[3].Y + random(noiseLevel), distanceToScreen + 0.2 - 0.3 * (gestureSampleCount * gestureIndex - i) / gestureSampleCount };
+	}
+
+	for (i = 0; i < samplesCount; i++)
+	{
+		if (i % gestureSampleCount == 0)
+			std::cout << " -- " << (i / gestureSampleCount) << " -- \n";
+
+		CameraSpacePoint& sample = samples[i];
+		Calibrator::Event e = calibrator.feed(sample);
+		//std::cout << sample.X << " " << sample.Y << " " << sample.Z << "   event: " << (int)e << "   state: " << (int)calibrator.state() << "\n";
+	}
+
+	std::cout << " ------------------- \n";
+
+	for (i = 0; i < 4; i++)
+	{
+		Calibrator::Point& f = finger[i];
+		CameraSpacePoint sample;
+		sample.X = f.X + random(0.0002);
+		sample.Y = f.Y + random(0.0002);
+		sample.Z = 1;
+		Calibrator::Point sp;
+		if (calibrator.map(sample, sp))
+			std::cout << sample.X << " " << sample.Y << " " << sample.Z << " mapped to " << sp.X << " " << sp.Y << "\n";
 		else
-		{
-			double masX[11];
-			double masY[11];
-			double masZ[11];
-			for (int i = 0; i < numberOfCalibrationPoints; i++)
-			{
-				masX[i] = calibPoint.handTrackerPointsX[calibPoint.pointNumber][i];
-				masY[i] = calibPoint.handTrackerPointsY[calibPoint.pointNumber][i];
-				masZ[i] = calibPoint.handTrackerPointsZ[calibPoint.pointNumber][i];
-			}
-			sort(masX, masX + numberOfCalibrationPoints);
-			sort(masY, masY + numberOfCalibrationPoints);
-			sort(masZ, masZ + numberOfCalibrationPoints);
-
-			for (int i = 0; i < numberOfCalibrationPoints; i++)
-			{
-				printf("Point! %f %f %f\n", masX[i], masY[i], masZ[i]);
-				
-			}
-
-			calibPoint.ClickTriger = true;
-			calibPoint.A[calibPoint.pointNumber][0] = masX[5];
-			calibPoint.A[calibPoint.pointNumber][1] = masY[5];
-			calibPoint.A[calibPoint.pointNumber][2] = masZ[5];
-			printf("Point! %d \n", calibPoint.pointNumber);
-			PlaySoundA("sound.wav", NULL, SND_ASYNC);
-			calibPoint.handTrackerChecker = 0;
-			calibPoint.current_x = colorpoint.X;
-			calibPoint.current_y = colorpoint.Y;
-			return;
-		}
-		//
+			std::cout << "Cannot map " << sample.X << " " << sample.Y << " " << sample.Z << "\n";
 	}
 
-	else if (correctedDistance > distanceToScreen && calibPoint.ClickTriger == true)
+	delete[] samples;
+
+	WaitKeyPress("continue");
+}
+
+void TestCalibratorFromFile()
+{
+	std::cout << "\n -- TEST CALIBRATOR FROM FILE --\n";
+
+	double distanceToScreen = 1.8;
+	Calibrator calibrator(distanceToScreen);
+
+	Calibrator::Point finger[4] = {
+		Calibrator::Point(-0.4, -0.6),
+		Calibrator::Point(0.4, -0.6),
+		Calibrator::Point(-0.4, 0.6),
+		Calibrator::Point(0.4, 0.6)
+	};
+
+	for (int i = 0; i < 4; i++)
 	{
-		calibPoint.ClickTriger = false;
-		//printf("Click! \n");
-		cout << "Click! \n" << endl;
-		calibPoint.calibrationPoint[calibPoint.pointNumber] = true;
-		calibPoint.pointNumber++;
-		return;
+		Calibrator::Point& f = finger[i];
+		CameraSpacePoint sample;
+		sample.X = f.X + random(0.0002);
+		sample.Y = f.Y + random(0.0002);
+		sample.Z = 1;
+		Calibrator::Point sp;
+		if (calibrator.map(sample, sp))
+			std::cout << sample.X << " " << sample.Y << " " << sample.Z << " mapped to " << sp.X << " " << sp.Y << "\n";
+		else
+			std::cout << "Cannot map " << sample.X << " " << sample.Y << " " << sample.Z << "\n";
 	}
+
+	WaitKeyPress("continue");
 }
 
 
 int main()
 {
-	//Get window size
-	int x_size = GetSystemMetrics(SM_CXSCREEN);
-	int y_size = GetSystemMetrics(SM_CYSCREEN);
-	
-	double distanceToScreen = 1.97;
-	double avgDist = 0;
-	int numberOfCalibrationPoints = 11;
+	TestCalibrator();
+	TestCalibratorFromFile();
 
-	ofstream fout;
-	fout.open("log.txt");
-	if (!fout.is_open()) //if the file was not opened
-	{
-		cout << "Can't open a file\n"; 
-		return 1;
-	}
-	
-	DistanceCorrector dc(
-		distanceToScreen,	// meters to the projector
-		1010,				// nearest point X
-		620					// nearest point Y
-	);
-	calibPoint cp;
-	HRESULT hr = S_OK;
+	WaitKeyPress("exit");
 
-	LowPassFilter lpf(300, 33);
-
-	if (FAILED(GetDefaultKinectSensor(&sensor))) return 0;
-	if (sensor) {
-		sensor->Open();
-		IBodyFrameSource* bodysource = nullptr;
-		hr = sensor->get_BodyFrameSource(&bodysource);
-		if (FAILED(hr)) return 0;
-		hr = bodysource->OpenReader(&bodyReader);
-		if (FAILED(hr)) return 0;
-		while (1) {
-			IBodyFrame* frame = nullptr;
-			if (SUCCEEDED(bodyReader->AcquireLatestFrame(&frame))) {
-
-				IBody* Body[BODY_COUNT] = { 0 };
-				hr = frame->GetAndRefreshBodyData(BODY_COUNT, Body);
-				if (SUCCEEDED(hr))
-				{
-
-					for (int count = 0; count < BODY_COUNT; count++)
-					{
-						BOOLEAN Track = false;
-						hr = Body[count]->get_IsTracked(&Track);
-						if (SUCCEEDED(hr) && Track)
-						{
-							//printf("Good \n");
-							Joint joint[JointType::JointType_Count];
-							hr = Body[count]->GetJoints(JointType::JointType_Count, joint);
-							if (SUCCEEDED(hr))
-							{
-								if (joint[JointType_HandTipRight].TrackingState != TrackingState::TrackingState_NotTracked)
-								{
-									ICoordinateMapper* coordinateMapper;
-									
-									hr = sensor->get_CoordinateMapper(&coordinateMapper);
-									CameraSpacePoint point = joint[JointType_HandTipRight].Position;
-									ColorSpacePoint colorpoint;
-									coordinateMapper->MapCameraPointToColorSpace(point, &colorpoint);
-									//printf("Point x: %f y: %f z: %f\n", colorpoint.X, colorpoint.Y, point.Z);
-									//printf("Corrected Distance %f \n", point.Z);
-									double correctedDistance = point.Z;
-									//correctedDistance = dc.from(colorpoint.X, colorpoint.Y, point.Z);
-									//printf("Corrected Distance %4.3f %4.3f %4.2f \n", point.X, point.Y, correctedDistance);
-
-									
-									if (calibration == false)
-									{
-										if (cp.calibrationPoint[0] == false && cp.calibrationPoint[1] == false && cp.calibrationPoint[2] == false && cp.calibrationPoint[3] == false) {
-
-
-											point_calibration(correctedDistance, distanceToScreen, numberOfCalibrationPoints, colorpoint, point, cp);
-										
-											 
-										}
-										if (cp.calibrationPoint[0] == true && cp.calibrationPoint[1] == false && cp.calibrationPoint[2] == false && cp.calibrationPoint[3] == false) {
-											
-											point_calibration(correctedDistance, distanceToScreen, numberOfCalibrationPoints, colorpoint, point, cp);
-
-										}
-										if (cp.calibrationPoint[0] == true && cp.calibrationPoint[1] == true && cp.calibrationPoint[2] == false && cp.calibrationPoint[3] == false) {
-											
-											point_calibration(correctedDistance, distanceToScreen, numberOfCalibrationPoints, colorpoint, point, cp);
-
-										}
-										if (cp.calibrationPoint[0] == true && cp.calibrationPoint[1] == true && cp.calibrationPoint[2] == true && cp.calibrationPoint[3] == false) {
-
-											
-											point_calibration(correctedDistance, distanceToScreen, numberOfCalibrationPoints, colorpoint, point, cp);
-
-										}
-										if (cp.calibrationPoint[0] == true && cp.calibrationPoint[1] == true && cp.calibrationPoint[2] == true && cp.calibrationPoint[3] == true) {
-											//compute the calibration 
-
-											for (int j = 0; j < 4; j++)
-											{
-												fout << "Point " << j << endl;
-												for (size_t i = 0; i < numberOfCalibrationPoints; i++)
-												{
-													fout << "X " << cp.handTrackerPointsX[j][i] << "Y " << cp.handTrackerPointsY[j][i] << "Z " << cp.handTrackerPointsZ[j][i] << endl;
-												}
-											}
-											double B[4][2] = {
-											{ 0, 0},
-											{ x_size, 0},
-											{0, y_size},
-											{ x_size, y_size },
-											};		// calibration screen matrix
-
-											
-											for (int i = 0; i < 4; i++) 
-											{
-												for (int j = 0; j < 3; j++)
-												{
-													A[i][j] = cp.A[i][j];
-												}
-											}
-											
-											for (int i = 0; i < 4; i++){
-												printf("X:%f Y:%f Z:%f \n", A[i][0], A[i][1],A[i][2]);
-												k2p.addCalibPoint(A[i][0], A[i][1], A[i][2], B[i][0], B[i][1]);
-												avgDist += A[i][2];
-												fout << "X: " << A[i][0] << "Y: " << A[i][1] << "Z: " << A[i][2] << endl;
-											}
-											avgDist /= 4;
-											k2p.calibrate();
-
-											calibration = true;
-											printf("Calibration done! \n");
-											fout << "    X     " << "   Y   " << "   Z0   " << "   Zcor   " << endl;
-										}
-									}
-									if (calibration == true)
-									{
-										if (correctedDistance < distanceToScreen)
-										{
-
-											k2p.map(point.X, point.Y, avgDist, screen_x, screen_y);
-											//printf("X:%4.2f Y:%4.2f Z:%4.2f --- X:%4.0f Y:%4.0f\n", point.X, point.Y, correctedDistance, screen_x, screen_y);
-											//Point_trigger = true;
-
-											lpf.filter(screen_x, screen_y);
-											SetCursorPos(screen_x, screen_y);
-											fout << screen_x << " " << screen_y << " " << point.Z << " " << avgDist << endl;
-										}
-
-									}
-								}
-							}
-						}
-						SafeRelease(Body[count]);
-					}
-					
-				}
-				
-			}
-			SafeRelease(frame);
-		}
-	}
-	fout.close();
 	return 0;
 }
