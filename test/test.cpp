@@ -38,11 +38,11 @@ void TestCalibrator()
 	int gestureIndex = 0;
 	double noiseLevel = 0.0;
 
-	Calibrator::Point finger[4] = {
-		Calibrator::Point(-0.4, -0.6),
-		Calibrator::Point(0.4, -0.6),
-		Calibrator::Point(-0.4, 0.6),
-		Calibrator::Point(0.4, 0.6)
+	Point finger[4] = {
+		Point(-0.4, -0.6),
+		Point(0.4, -0.6),
+		Point(-0.4, 0.6),
+		Point(0.4, 0.6)
 	};
 
 	// first point in 
@@ -108,16 +108,16 @@ void TestCalibrator()
 
 	for (i = 0; i < 4; i++)
 	{
-		Calibrator::Point& f = finger[i];
+		Point& f = finger[i];
 		CameraSpacePoint sample;
 		sample.X = f.X + random(0.0002);
 		sample.Y = f.Y + random(0.0002);
 		sample.Z = 1;
-		Calibrator::Point sp;
+		Point sp;
 		if (calibrator.map(sample, sp))
-			std::cout << sample.X << " " << sample.Y << " " << sample.Z << " mapped to " << sp.X << " " << sp.Y << "\n";
+			printf("%.4f %.4f %.4f mapped to %.0f %.0f\n", sample.X, sample.Y, sample.Z, sp.X, sp.Y);
 		else
-			std::cout << "Cannot map " << sample.X << " " << sample.Y << " " << sample.Z << "\n";
+			printf("Cannot map %.4f %.4f %.4f\n", sample.X, sample.Y, sample.Z, sp.X, sp.Y);
 	}
 
 	delete[] samples;
@@ -132,25 +132,27 @@ void TestCalibratorFromFile()
 	double distanceToScreen = 1.8;
 	Calibrator calibrator(distanceToScreen);
 
-	Calibrator::Point finger[4] = {
-		Calibrator::Point(-0.4, -0.6),
-		Calibrator::Point(0.4, -0.6),
-		Calibrator::Point(-0.4, 0.6),
-		Calibrator::Point(0.4, 0.6)
+	Point finger[4] = {
+		Point(-0.4, -0.6),
+		Point(0.4, -0.6),
+		Point(-0.4, 0.6),
+		Point(0.4, 0.6)
 	};
 
 	for (int i = 0; i < 4; i++)
 	{
-		Calibrator::Point& f = finger[i];
+		Point& f = finger[i];
+
 		CameraSpacePoint sample;
 		sample.X = f.X + random(0.0002);
 		sample.Y = f.Y + random(0.0002);
 		sample.Z = 1;
-		Calibrator::Point sp;
+
+		Point sp;
 		if (calibrator.map(sample, sp))
-			std::cout << sample.X << " " << sample.Y << " " << sample.Z << " mapped to " << sp.X << " " << sp.Y << "\n";
+			printf("%.4f %.4f %.4f mapped to %.0f %.0f\n", sample.X, sample.Y, sample.Z, sp.X, sp.Y);
 		else
-			std::cout << "Cannot map " << sample.X << " " << sample.Y << " " << sample.Z << "\n";
+			printf("Cannot map %.4f %.4f %.4f\n", sample.X, sample.Y, sample.Z, sp.X, sp.Y);
 	}
 
 	WaitKeyPress("continue");

@@ -1,26 +1,26 @@
-// lowPassFilter.h file
 #pragma once
 #include "stdafx.h"
 
+/* Removes high-frequency noise */
 class LowPassFilter
 {
 public:
-	/* @description Constructor
+	/* Constructor
 	* @param("aT") Filter strength
 	* @param("aInterval") Data sampling interval in milliseconds
 	*/
 	LowPassFilter(double aT, double aInterval);
 
-	/* @description Call this function every time when a click event starts or ends
+	/* Call this function every time when a click event starts or ends
 	*/
 	void reset();
 
-	/* @description Applies filtering to a value. Note that the method modifies the original data.
+	/* Applies filtering to a value. Note that the method modifies the original data.
 	* @param("aX") a value to smooth
 	*/
 	void filter(double& aX);
 
-	/* @description Applies filtering to X and Y. Note that the method modifies the original data.
+	/* Applies filtering to X and Y. Note that the method modifies the original data.
 	* @param("aX") point X coordinate
 	* @param("aY") point Y coordinate
 	*/

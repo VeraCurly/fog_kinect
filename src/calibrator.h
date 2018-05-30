@@ -1,6 +1,8 @@
 #pragma once
 #include "stdafx.h"
 
+#include "point.h"
+
 #include <Kinect.h>
 
 #define CALIBRATOR_POINT_COUNT 4
@@ -10,7 +12,7 @@
 class Calibrator
 {
 public:
-	/* @decription Calibrator states */
+	/* Calibrator states */
 	enum class State : int {
 		Initialized = 0,	/* Not yes started */
 		Off = 1,			/* Last point was not in the calibration space */
@@ -20,7 +22,7 @@ public:
 		Ready = Completed | LoadedFromFile
 	};
 
-	/* @decription Calibrator events */
+	/* Calibrator events */
 	enum class Event : int {
 		Invalid = -1,	/* Calibration is completed, samples should not be fed in anymore */
 		None,			/* No event */
@@ -29,14 +31,6 @@ public:
 		PointAbort,		/* Point calibration was aborted */
 		PointEnd,		/* Finished point calibration */
 		Finished,		/* Finished the calibration */
-	};
-
-	struct Point
-	{
-		double X;
-		double Y;
-		Point() {}
-		Point(double aX, double aY) : X(aX), Y(aY) {}
 	};
 
 	/* Constructor
@@ -55,11 +49,12 @@ public:
 	*/
 	Event feed(CameraSpacePoint aCameraPoint);
 
-	/* Configures the Kinect2Screen object
-	* @param("aK2p") Kinect2Screen object
-	* @returns False if the calibrator was not configured yet (state != Finished) or the ponit is too far, True otherwise
+	/* Maps Kinect camera point to the fog screen
+	* @param("aCameraPoint") Kinect camera point
+	* @param("aScreenPoint") Receiver for the screen point
+	* @returns False if the calibrator was not configured yet (state & State::Ready == 0) or the point is too far; True otherwise
 	*/
-	bool Calibrator::map(CameraSpacePoint aCameraPoint, Point& aScreenPoint);
+	bool map(CameraSpacePoint aCameraPoint, Point& aScreenPoint);
 	
 private:
 	double _distanceToScreen;
