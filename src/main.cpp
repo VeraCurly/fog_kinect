@@ -14,6 +14,7 @@
 
 #include "lowPassFilter.h"
 #include "calibrator.h"
+#include "mouseController.h"
 
 #pragma comment(lib, "Winmm.lib")
 
@@ -36,6 +37,8 @@ int main()
 	Calibrator calibrator(distanceToScreen);
 	LowPassFilter pointSmoother(300, 33);
 	LowPassFilter depthSmoother(100, 33);
+	MouseController mouseController(MouseController::Mode::Tapping);
+
 
 	ofstream logFile;
 	logFile.open("log.txt");
@@ -121,12 +124,18 @@ int main()
 					if (calibrator.map(point, sp))
 					{
 						pointSmoother.filter(sp.X, sp.Y);
-						SetCursorPos(sp.X, sp.Y);
+						mouseController.feed(sp, distanceToScreen - depth);
 
 						logFile << sp.X << " " << sp.Y << " " << point.Z << " " << endl;
 					}
 				}
 				else {
+					DWORD difTime = mouseController.pass( distanceToScreen - depth);
+					if (difTime)
+					{
+						logFile << "Click im ms. " << difTime << endl;
+					}
+
 					pointSmoother.reset();
 				}
 			}

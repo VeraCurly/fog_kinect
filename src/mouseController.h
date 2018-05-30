@@ -12,7 +12,7 @@ public:
 	/* Controller mode */
 	enum class Mode : int {
 		Undefined,
-		Dwelling,
+		Tapping,
 		Touching
 	};
 
@@ -28,15 +28,20 @@ public:
 	Mode mode(Mode aNewMode = Mode::Undefined);
 
 	/* Feed screen points to move the mouse
-	* @param("aScreenPoint") Kinect camera point
-	* @returns Processing event
+	* @param("aPoint") Screen point
 	*/
-	void feed(CameraSpacePoint aCameraPoint);
+	void feed(Point aPoint, double aDepth);
 
 	/* Call this function to indicate that the finger is not in the interaction space
 	*/
-	void pass();
+	DWORD pass(double aDepth);
 
 private:
 	Mode _mode;
+
+	bool _isInteracting;
+
+	int _screenHeight;
+	double _dx, _dy;
+	DWORD _dwStart;
 };
