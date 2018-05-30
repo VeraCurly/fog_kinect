@@ -130,9 +130,8 @@ int main()
 					pointSmoother.reset();
 				}
 			}
-		}
-
-		SafeRelease(Body[count]);
+			SafeRelease(Body[count]);
+		}		
 	}
 
 	logFile.close();

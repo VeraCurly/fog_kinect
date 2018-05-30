@@ -1,3 +1,5 @@
+
+#include "stdafx.h"
 #include "mouseController.h"
 
 MouseController::MouseController(Mode aInitialMode) :
